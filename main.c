@@ -15,47 +15,94 @@ how to use the page table and disk interfaces.
 #include <string.h>
 #include <errno.h>
 
-void page_fault_handler_fifo( struct page_table *pt, int page);
-void page_fault_handler_lru( struct page_table *pt, int page);
-void page_fault_handler_custom( struct page_table *pt, int page);
+int get_frame_to_pop_fifo();
+int get_frame_to_pop_lru();
+int get_frame_to_pop_custom();
+int get_page_from_frame(int frame);
+
+int FIFO = 0;
+int LRU = 0;
+int CUSTOM = 0;
 
 int replacing_algorithm = 0;
+struct disk *disk;
 
-void page_fault_handler( struct page_table *pt, int page )
-{
-	if (replacing_algorithm == 0){
+void page_fault_handler( struct page_table *pt, int page) {
+	int bit_value;
+	int frame_index;
+	page_table_get_entry( pt, page, &frame_index, &bit_value );
 
-		page_fault_handler_fifo(pt, page);
+	switch (bit_value) {
+		case PROT_READ: {
+			page_table_set_entry(pt, page, frame_index, PROT_READ|PROT_WRITE);
+		} break;
 
-	} else if (replacing_algorithm == 1){
+		case PROT_NONE: {
+			char *physmem = page_table_get_physmem(pt);
 
-		page_fault_handler_lru(pt, page);
+			// Elijo el 'frame_to_pop' frame que hay que sacar de physical
+			int frame_to_pop = 0;
 
-	} else {
+			if (replacing_algorithm == FIFO) {
+				frame_to_pop = get_frame_to_pop_fifo();
+			}
+			else if (replacing_algorithm == LRU) {
+				frame_to_pop = get_frame_to_pop_lru();
+			}
+			else if (replacing_algorithm == CUSTOM) {
+				frame_to_pop = get_frame_to_pop_custom();
+			} else {
+				printf("Replacing Algorithm not recognized\n");
+				exit(1);
+			}
 
-		page_fault_handler_custom(pt, page);
+			// Encuentro donde hay que guardarlo en disk
+			int page_to_pop = get_page_from_frame(frame_to_pop);
 
-	} 
-	
-	printf("page fault on page #%d\n",page);
-	exit(1);
+			if ( page_to_pop != -1 ) {
+				int bit_to_pop;
+				page_table_get_entry( pt, page_to_pop, NULL, &bit_to_pop );
+
+				if (bit_to_pop == (PROT_READ|PROT_WRITE)) {
+
+					// Saco de physical el que voy a sacar y lo guardo en disk
+					disk_write(disk, page_to_pop, &physmem[ frame_to_pop*PAGE_SIZE ]);
+				}
+
+				// Modifico en virtmem que el frame sacado no esta en physical
+				int NOT_IN_PHYSICAL = 0;
+				page_table_set_entry(pt, page_to_pop, NOT_IN_PHYSICAL, PROT_NONE);
+			}
+
+			// Saco del disk el 'page' frame y lo guardo en 'frame_to_pop' en physical
+			disk_read(disk, page, &physmem[ frame_to_pop*PAGE_SIZE ]);
+
+			// Modifico en virtmem que el frame 'frame_to_pop' y read esta en physical en el frame 'frame_to_pop'
+			page_table_set_entry(pt, page, frame_to_pop, PROT_READ);
+
+		} break;
+
+		default:
+			exit(1);
+	}
+}
+int get_frame_to_pop_fifo() {
+	printf("fifo algorithm not implemented\n");
+	return 0;
+}
+int get_frame_to_pop_lru() {
+	printf("lru algorithm not implemented\n");
+	return -1;
+}
+int get_frame_to_pop_custom() {
+	printf("custom algorithm not implemented\n");
+	return -1;
+}
+int get_page_from_frame(int frame) {
+	return -1;
 }
 
-void page_fault_handler_fifo( struct page_table *pt, int page)	
-{
-	printf("fifo algorithm not implemented\n");
-} 
-void page_fault_handler_lru( struct page_table *pt, int page)	
-{
-	printf("lru algorithm not implemented\n");
-} 
-void page_fault_handler_custom( struct page_table *pt, int page)	
-{
-	printf("custom algorithm not implemented\n");
-} 
-
-int main( int argc, char *argv[])
-{
+int main( int argc, char *argv[]) {
 	if(argc!=5) {
 		/* Add 'random' replacement algorithm if the size of your group is 3 */
 		printf("use: virtmem <npages> <nframes> <lru|fifo|custom> <sort|scan|focus>\n");
@@ -66,7 +113,7 @@ int main( int argc, char *argv[])
 	int nframes = atoi(argv[2]);
 	const char *program = argv[4];
 
-	struct disk *disk = disk_open("myvirtualdisk",npages);
+	disk = disk_open("myvirtualdisk",npages);
 	if(!disk) {
 		fprintf(stderr,"couldn't create virtual disk: %s\n",strerror(errno));
 		return 1;
@@ -80,8 +127,6 @@ int main( int argc, char *argv[])
 	}
 
 	char *virtmem = page_table_get_virtmem(pt);
-
-	char *physmem = page_table_get_physmem(pt);
 
 	if(!strcmp(program,"sort")) {
 		sort_program(virtmem,npages*PAGE_SIZE);
