@@ -15,17 +15,50 @@ how to use the page table and disk interfaces.
 #include <string.h>
 #include <errno.h>
 
+void page_fault_handler_fifo( struct page_table *pt, int page);
+void page_fault_handler_lru( struct page_table *pt, int page);
+void page_fault_handler_custom( struct page_table *pt, int page);
+
+int replacing_algorithm = 0;
+
 void page_fault_handler( struct page_table *pt, int page )
 {
+	if (replacing_algorithm == 0){
+
+		page_fault_handler_fifo(pt, page);
+
+	} else if (replacing_algorithm == 1){
+
+		page_fault_handler_lru(pt, page);
+
+	} else {
+
+		page_fault_handler_custom(pt, page);
+
+	} 
+	
 	printf("page fault on page #%d\n",page);
 	exit(1);
 }
 
-int main( int argc, char *argv[] )
+void page_fault_handler_fifo( struct page_table *pt, int page)	
+{
+	printf("fifo algorithm not implemented\n");
+} 
+void page_fault_handler_lru( struct page_table *pt, int page)	
+{
+	printf("lru algorithm not implemented\n");
+} 
+void page_fault_handler_custom( struct page_table *pt, int page)	
+{
+	printf("custom algorithm not implemented\n");
+} 
+
+int main( int argc, char *argv[])
 {
 	if(argc!=5) {
 		/* Add 'random' replacement algorithm if the size of your group is 3 */
-		printf("use: virtmem <npages> <nframes> <lru|fifo> <sort|scan|focus>\n");
+		printf("use: virtmem <npages> <nframes> <lru|fifo|custom> <sort|scan|focus>\n");
 		return 1;
 	}
 
