@@ -18,7 +18,7 @@ how to use the page table and disk interfaces.
 
 int get_frame_to_pop_fifo(int nframes);
 int get_frame_to_pop_lru(int nframes);
-int get_frame_to_pop_custom();
+int get_frame_to_pop_custom(int nframes);
 int get_page_from_frame(int frame);
 
 int FIFO = 0;
@@ -58,7 +58,7 @@ void page_fault_handler( struct page_table *pt, int page) {
 			} else if (replacing_algorithm == LRU) {
 				frame_to_pop = get_frame_to_pop_lru(nframes);
 			} else if (replacing_algorithm == CUSTOM) {
-				frame_to_pop = get_frame_to_pop_custom();
+				frame_to_pop = get_frame_to_pop_custom(nframes);
 			} else {
 				printf("Replacing Algorithm not recognized\n");
 				exit(1);
@@ -93,7 +93,6 @@ void page_fault_handler( struct page_table *pt, int page) {
 		default:
 			exit(1);
 	}
-	// page_table_print(pt);
 }
 
 int get_frame_to_pop_fifo(int nframes) {
@@ -104,10 +103,12 @@ int get_frame_to_pop_lru(int nframes) {
 	last_frame_index = (rand() + last_frame_index) % nframes;
 	return last_frame_index;
 }
-int get_frame_to_pop_custom() {
-	printf("custom algorithm not implemented\n");
-	exit(1);
-	return -1;
+int custom_counter = 1;
+int get_frame_to_pop_custom(int nframes) {
+	last_frame_index = (last_frame_index + custom_counter) % nframes;
+	custom_counter = !custom_counter;
+
+	return last_frame_index;
 }
 int get_page_from_frame(int frame) {
 	int page = page_by_frame[frame];
