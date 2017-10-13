@@ -15,7 +15,7 @@ how to use the page table and disk interfaces.
 #include <string.h>
 #include <errno.h>
 
-int get_frame_to_pop_fifo();
+int get_frame_to_pop_fifo(int nframes);
 int get_frame_to_pop_lru();
 int get_frame_to_pop_custom();
 int get_page_from_frame(int frame);
@@ -24,10 +24,15 @@ int FIFO = 0;
 int LRU = 0;
 int CUSTOM = 0;
 
-int replacing_algorithm = 0;
+int *page_by_frame;
+int last_frame_index;
+
+int page_fault;
+int replacing_algorithm;
 struct disk *disk;
 
 void page_fault_handler( struct page_table *pt, int page) {
+	page_fault ++;
 	int bit_value;
 	int frame_index;
 	page_table_get_entry( pt, page, &frame_index, &bit_value );
@@ -44,7 +49,7 @@ void page_fault_handler( struct page_table *pt, int page) {
 			int frame_to_pop = 0;
 
 			if (replacing_algorithm == FIFO) {
-				frame_to_pop = get_frame_to_pop_fifo();
+				frame_to_pop = get_frame_to_pop_fifo(page_table_get_nframes(pt));
 			}
 			else if (replacing_algorithm == LRU) {
 				frame_to_pop = get_frame_to_pop_lru();
@@ -58,13 +63,11 @@ void page_fault_handler( struct page_table *pt, int page) {
 
 			// Encuentro donde hay que guardarlo en disk
 			int page_to_pop = get_page_from_frame(frame_to_pop);
-
+			page_by_frame[frame_to_pop] = page;
 			if ( page_to_pop != -1 ) {
 				int bit_to_pop;
-				page_table_get_entry( pt, page_to_pop, NULL, &bit_to_pop );
-
+				page_table_get_entry( pt, page_to_pop, &frame_to_pop, &bit_to_pop );
 				if (bit_to_pop == (PROT_READ|PROT_WRITE)) {
-
 					// Saco de physical el que voy a sacar y lo guardo en disk
 					disk_write(disk, page_to_pop, &physmem[ frame_to_pop*PAGE_SIZE ]);
 				}
@@ -85,10 +88,12 @@ void page_fault_handler( struct page_table *pt, int page) {
 		default:
 			exit(1);
 	}
+	// page_table_print(pt);
 }
-int get_frame_to_pop_fifo() {
-	printf("fifo algorithm not implemented\n");
-	return 0;
+
+int get_frame_to_pop_fifo(int nframes) {
+	last_frame_index = (last_frame_index + 1) % nframes;
+	return last_frame_index;
 }
 int get_frame_to_pop_lru() {
 	printf("lru algorithm not implemented\n");
@@ -99,7 +104,8 @@ int get_frame_to_pop_custom() {
 	return -1;
 }
 int get_page_from_frame(int frame) {
-	return -1;
+	int page = page_by_frame[frame];
+	return page;
 }
 
 int main( int argc, char *argv[]) {
@@ -113,13 +119,20 @@ int main( int argc, char *argv[]) {
 	int nframes = atoi(argv[2]);
 	const char *algorithm = argv[3];
 	const char *program = argv[4];
+	replacing_algorithm = 0;
+	last_frame_index = -1;
+	page_fault = 0;
+	page_by_frame = malloc(sizeof(int) * nframes);
+
+	for (int page = 0; page < nframes; page++) {
+		page_by_frame[page] = -1;
+	}
 
 	disk = disk_open("myvirtualdisk",npages);
 	if(!disk) {
 		fprintf(stderr,"couldn't create virtual disk: %s\n",strerror(errno));
 		return 1;
 	}
-
 
 	struct page_table *pt = page_table_create( npages, nframes, page_fault_handler );
 	if(!pt) {
