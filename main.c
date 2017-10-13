@@ -143,7 +143,7 @@ int get_frame_to_pop_custom(int nframes) {
 	return last_frame_index;
 }
 
-int get_page_from_frame_table_table(int frame) {
+int get_page_from_frame_table(int frame) {
 	int page = frame_table[frame];
 	return page;
 }
