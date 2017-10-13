@@ -21,8 +21,8 @@ int get_frame_to_pop_custom();
 int get_page_from_frame(int frame);
 
 int FIFO = 0;
-int LRU = 0;
-int CUSTOM = 0;
+int LRU = 1;
+int CUSTOM = 2;
 
 int *page_by_frame;
 int last_frame_index;
@@ -181,9 +181,7 @@ int main( int argc, char *argv[]) {
 	page_table_delete(pt);
 	disk_close(disk);
 
-	printf("Total Faults: %d\n", faults_amount);
-	printf("Disk Read: %d\n", disk_read_amount);
-	printf("Disk Write: %d\n", disk_write_amount);
+	printf("%d,%d,%d,%d\n", nframes, faults_amount, disk_read_amount, disk_write_amount);
 
 	return 0;
 }
