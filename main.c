@@ -14,9 +14,10 @@ how to use the page table and disk interfaces.
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 
 int get_frame_to_pop_fifo(int nframes);
-int get_frame_to_pop_lru();
+int get_frame_to_pop_lru(int nframes);
 int get_frame_to_pop_custom();
 int get_page_from_frame(int frame);
 
@@ -56,7 +57,7 @@ void page_fault_handler( struct page_table *pt, int page) {
 				frame_to_pop = get_frame_to_pop_fifo(page_table_get_nframes(pt));
 			}
 			else if (replacing_algorithm == LRU) {
-				frame_to_pop = get_frame_to_pop_lru();
+				frame_to_pop = get_frame_to_pop_lru(page_table_get_nframes(pt));
 			}
 			else if (replacing_algorithm == CUSTOM) {
 				frame_to_pop = get_frame_to_pop_custom();
@@ -101,9 +102,11 @@ int get_frame_to_pop_fifo(int nframes) {
 	last_frame_index = (last_frame_index + 1) % nframes;
 	return last_frame_index;
 }
-int get_frame_to_pop_lru() {
-	printf("lru algorithm not implemented\n");
-	return -1;
+int get_frame_to_pop_lru(int nframes) {
+   time_t t;
+   srand((unsigned) time(&t));
+	 last_frame_index = (rand() + last_frame_index) % nframes;
+   return last_frame_index;
 }
 int get_frame_to_pop_custom() {
 	printf("custom algorithm not implemented\n");
