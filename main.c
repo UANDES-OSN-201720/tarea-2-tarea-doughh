@@ -222,7 +222,9 @@ int main( int argc, char *argv[]) {
 	// Free frame_table malloc
 	free(frame_table);
 
-	printf("%d,%d,%d,%d\n", nframes, page_faults_amount, disk_read_amount, disk_write_amount);
+	printf("Total Faults: %d\n", page_faults_amount);
+	printf("Disk Read: %d\n", disk_read_amount);
+	printf("Disk Write: %d\n", disk_write_amount);
 
 	return 0;
 }
