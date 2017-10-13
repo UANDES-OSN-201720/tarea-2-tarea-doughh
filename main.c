@@ -49,17 +49,15 @@ void page_fault_handler( struct page_table *pt, int page) {
 
 		case PROT_NONE: {
 			char *physmem = page_table_get_physmem(pt);
-
+			int nframes = page_table_get_nframes(pt);
 			// Elijo el 'frame_to_pop' frame que hay que sacar de physical
 			int frame_to_pop = 0;
 
 			if (replacing_algorithm == FIFO) {
-				frame_to_pop = get_frame_to_pop_fifo(page_table_get_nframes(pt));
-			}
-			else if (replacing_algorithm == LRU) {
-				frame_to_pop = get_frame_to_pop_lru(page_table_get_nframes(pt));
-			}
-			else if (replacing_algorithm == CUSTOM) {
+				frame_to_pop = get_frame_to_pop_fifo(nframes);
+			} else if (replacing_algorithm == LRU) {
+				frame_to_pop = get_frame_to_pop_lru(nframes);
+			} else if (replacing_algorithm == CUSTOM) {
 				frame_to_pop = get_frame_to_pop_custom();
 			} else {
 				printf("Replacing Algorithm not recognized\n");
@@ -103,13 +101,12 @@ int get_frame_to_pop_fifo(int nframes) {
 	return last_frame_index;
 }
 int get_frame_to_pop_lru(int nframes) {
-   time_t t;
-   srand((unsigned) time(&t));
-	 last_frame_index = (rand() + last_frame_index) % nframes;
-   return last_frame_index;
+	last_frame_index = (rand() + last_frame_index) % nframes;
+	return last_frame_index;
 }
 int get_frame_to_pop_custom() {
 	printf("custom algorithm not implemented\n");
+	exit(1);
 	return -1;
 }
 int get_page_from_frame(int frame) {
@@ -128,14 +125,16 @@ int main( int argc, char *argv[]) {
 	int nframes = atoi(argv[2]);
 	const char *algorithm = argv[3];
 	const char *program = argv[4];
-	replacing_algorithm = 0;
-	last_frame_index = -1;
 
-	// Statistics
+	// Statistics variables init
 	faults_amount = 0;
 	disk_read_amount = 0;
 	disk_write_amount = 0;
 
+	// Global variables init
+  srand(time(NULL));
+	replacing_algorithm = 0;
+	last_frame_index = -1;
 	page_by_frame = malloc(sizeof(int) * nframes);
 
 	for (int page = 0; page < nframes; page++) {
@@ -156,33 +155,38 @@ int main( int argc, char *argv[]) {
 
 	char *virtmem = page_table_get_virtmem(pt);
 
-	if(!strcmp(algorithm, "fifo")) {
+	if(!strncmp(algorithm, "fifo", 4)) {
 		replacing_algorithm = FIFO;
 
-	} else if(!strcmp(algorithm, "lru")) {
+	} else if(!strncmp(algorithm, "lru", 3)) {
 		replacing_algorithm = LRU;
 
-	} else if(!strcmp(algorithm, "custom")) {
+	} else if(!strncmp(algorithm, "custom", 6)) {
 		replacing_algorithm = CUSTOM;
 
+	} else {
+		fprintf(stderr,"unknown algorithm: %s\n",argv[3]);
+		exit(1);
 	}
 
-	if(!strcmp(program,"sort")) {
+	if(!strncmp(program,"sort", 4)) {
 		sort_program(virtmem,npages*PAGE_SIZE);
 
-	} else if(!strcmp(program,"scan")) {
+	} else if(!strncmp(program,"scan", 4)) {
 		scan_program(virtmem,npages*PAGE_SIZE);
 
-	} else if(!strcmp(program,"focus")) {
+	} else if(!strncmp(program,"focus", 5)) {
 		focus_program(virtmem,npages*PAGE_SIZE);
 
 	} else {
-		fprintf(stderr,"unknown program: %s\n",argv[3]);
-
+		fprintf(stderr,"unknown program: %s\n",argv[4]);
+		exit(1);
 	}
 
 	page_table_delete(pt);
 	disk_close(disk);
+
+	free(page_by_frame);
 
 	printf("%d,%d,%d,%d\n", nframes, faults_amount, disk_read_amount, disk_write_amount);
 
