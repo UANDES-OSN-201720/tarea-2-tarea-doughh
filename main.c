@@ -188,8 +188,10 @@ int main( int argc, char *argv[]) {
 	disk_close(disk);
 
 	free(page_by_frame);
-
-	printf("%d,%d,%d,%d\n", nframes, faults_amount, disk_read_amount, disk_write_amount);
+	
+	printf("Total Faults: %d\n", faults_amount);
+	printf("Disk Read: %d\n", disk_read_amount);
+	printf("Disk Write: %d\n", disk_write_amount);
 
 	return 0;
 }
