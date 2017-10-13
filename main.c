@@ -18,23 +18,26 @@ how to use the page table and disk interfaces.
 
 int get_frame_to_pop_fifo(int nframes);
 int get_frame_to_pop_lru(int nframes);
-int get_frame_to_pop_custom(int nframes, int page);
+int get_frame_to_pop_custom();
 int get_page_from_frame(int frame);
 
 int FIFO = 0;
 int LRU = 0;
 int CUSTOM = 0;
-int custom;
 
 int *page_by_frame;
 int last_frame_index;
 
-int page_fault;
+// Statistics
+int faults_amount;
+int disk_write_amount;
+int disk_read_amount;
+
 int replacing_algorithm;
 struct disk *disk;
 
 void page_fault_handler( struct page_table *pt, int page) {
-	page_fault ++;
+	faults_amount ++;
 	int bit_value;
 	int frame_index;
 	page_table_get_entry( pt, page, &frame_index, &bit_value );
@@ -57,7 +60,7 @@ void page_fault_handler( struct page_table *pt, int page) {
 				frame_to_pop = get_frame_to_pop_lru(page_table_get_nframes(pt));
 			}
 			else if (replacing_algorithm == CUSTOM) {
-				frame_to_pop = get_frame_to_pop_custom(page_table_get_nframes(pt), page);
+				frame_to_pop = get_frame_to_pop_custom();
 			} else {
 				printf("Replacing Algorithm not recognized\n");
 				exit(1);
@@ -72,6 +75,7 @@ void page_fault_handler( struct page_table *pt, int page) {
 				if (bit_to_pop == (PROT_READ|PROT_WRITE)) {
 					// Saco de physical el que voy a sacar y lo guardo en disk
 					disk_write(disk, page_to_pop, &physmem[ frame_to_pop*PAGE_SIZE ]);
+					disk_write_amount ++;
 				}
 
 				// Modifico en virtmem que el frame sacado no esta en physical
@@ -81,6 +85,7 @@ void page_fault_handler( struct page_table *pt, int page) {
 
 			// Saco del disk el 'page' frame y lo guardo en 'frame_to_pop' en physical
 			disk_read(disk, page, &physmem[ frame_to_pop*PAGE_SIZE ]);
+			disk_read_amount ++;
 
 			// Modifico en virtmem que el frame 'frame_to_pop' y read esta en physical en el frame 'frame_to_pop'
 			page_table_set_entry(pt, page, frame_to_pop, PROT_READ);
@@ -97,24 +102,16 @@ int get_frame_to_pop_fifo(int nframes) {
 	last_frame_index = (last_frame_index + 1) % nframes;
 	return last_frame_index;
 }
-
 int get_frame_to_pop_lru(int nframes) {
    time_t t;
    srand((unsigned) time(&t));
 	 last_frame_index = (rand() + last_frame_index) % nframes;
    return last_frame_index;
 }
-
-int get_frame_to_pop_custom(int nframes, int page) {
-	last_frame_index = (page * custom) % nframes;
-	if(custom == 1){
-		custom = 2;
-	} else {
-		custom = 1;
-	}
-	return last_frame_index;
+int get_frame_to_pop_custom() {
+	printf("custom algorithm not implemented\n");
+	return -1;
 }
-
 int get_page_from_frame(int frame) {
 	int page = page_by_frame[frame];
 	return page;
@@ -133,7 +130,12 @@ int main( int argc, char *argv[]) {
 	const char *program = argv[4];
 	replacing_algorithm = 0;
 	last_frame_index = -1;
-	page_fault = 0;
+
+	// Statistics
+	faults_amount = 0;
+	disk_read_amount = 0;
+	disk_write_amount = 0;
+
 	page_by_frame = malloc(sizeof(int) * nframes);
 
 	for (int page = 0; page < nframes; page++) {
@@ -181,6 +183,10 @@ int main( int argc, char *argv[]) {
 
 	page_table_delete(pt);
 	disk_close(disk);
+
+	printf("Total Faults: %d\n", faults_amount);
+	printf("Disk Read: %d\n", disk_read_amount);
+	printf("Disk Write: %d\n", disk_write_amount);
 
 	return 0;
 }
